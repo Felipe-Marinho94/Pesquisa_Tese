@@ -13,6 +13,10 @@ from sklearn import datasets
 from sklearn.metrics import accuracy_score
 import cvxpy as cp
 
+'''
+Implementação de algumas funções relevantes
+utilizadas para os modelos SVM e LSSVM
+'''
 #Função sinal
 def sinal(x):
     
@@ -22,6 +26,13 @@ def sinal(x):
     else:
         return -1
 
+
+#Função de predict
+def predict(X, w, b):
+    estimada = []
+    for i in range(X.shape[0]):
+        estimada.append(sinal(np.dot(X[i, ], w) + b))
+    return estimada
 
 #Perceptron Simples (Forma Primal)
 def perceptron(X, Y, eta, K):
@@ -61,6 +72,28 @@ def perceptron(X, Y, eta, K):
 Implementação do SVM: caso linear
 Considerando um Dataset linearmente separável
 '''
+#solver para o problema baseado no cvxpy
+def SVM_linear(X, y):
+    
+    #Inicialização das variáveis
+    w = cp.Variable(2)
+    b = cp.Variable(1)
+    
+    #Definição do problema de otimização convexa
+    prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(w, np.eye(2))), 
+                      [np.multiply(y, X @ w + np.ones([100])*b) >= np.ones([100])])
+    
+    #Resolução
+    prob.solve()
+    
+    #Resultados
+    resultados = {'w_opt': w.value,
+                  'b_opt': b.value,
+                  'valor_opt': prob.value,
+                  'lagrange_opt': prob.constraints[0].dual_value}
+    
+    return resultados
+
 #Dataset sintético
 X, y = datasets.make_blobs(n_samples=100, centers=2, n_features=2, center_box=(0, 10))
 plt.plot(X[:, 0][y == 0], X[:, 1][y == 0], 'g^')
@@ -73,28 +106,18 @@ for i in range(len(y)):
     else:
         y[i] = 1
 
-#solver para o problema baseado no cvxpy
-w = cp.Variable(2)
-b = cp.Variable(1)
-prob = cp.Problem(cp.Minimize((1/2)*cp.quad_form(w, np.eye(2))), 
-                  [np.multiply(y, X @ w + np.ones([100])*b) >= np.ones([100])])
-    
-prob.solve()
+resultados_SVM_linear = SVM_linear(X, y)
 
-
-print("\nO valor ótimo é", prob.value)
-print("Uma soluçãové")
-print([w.value, b.value])
+print("\nO valor ótimo é", resultados_SVM_linear['valor_opt'])
+print("Uma solução é")
+print([resultados_SVM_linear['w_opt'], resultados_SVM_linear['b_opt']])
 print("Os multiplicadores de Lagrange para a restrições são")
-print(prob.constraints[0].dual_value)
+print(resultados_SVM_linear['lagrange_opt'])
 
-#Função de predict
-def predict(X, w, b):
-    estimada = []
-    for i in range(X.shape[0]):
-        estimada.append(sinal(np.dot(X[i, ], w) + b))
-    return estimada
-
-#Avaliando o ajuste do SVM
-y_hat = predict(X, w.value, b.value)
+'''
+Avaliação dos modelos implementados utilizando
+diversas métricas para classificação
+'''
+#Avaliando o ajuste do SVM linear no dataset lineramente separável
+y_hat = predict(X, resultados_SVM_linear['w_opt'], resultados_SVM_linear['b_opt'])
 accuracy_score(y, y_hat)
