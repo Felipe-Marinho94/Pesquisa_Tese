@@ -11,6 +11,8 @@ import numpy as np
 import sklearn
 import matplotlib.pyplot as plt
 from numpy import linalg
+from sklearn.datasets import make_blobs
+from matplotlib import style
 
 #------------------------------------------------------------------------------
 #Implementação de algumas funções de kernel
@@ -49,7 +51,7 @@ def fit(X, y, tau, kernel):
     n_samples, n_feautres = X.shape
     
     #Matriz de Gram
-    K = np.zeros(n_samples, n_samples)
+    K = np.zeros((n_samples, n_samples))
     for i in range(n_samples):
         for j in range(n_samples):
             
@@ -62,13 +64,21 @@ def fit(X, y, tau, kernel):
             
             if kernel == "polinomial":
                 K[i, j] = polinomial_kernel(X[i], X[j])
+    return K
 
 
+#Realizando um pequeno teste
+#Dataset sintético
+style.use("fivethirtyeight")
+ 
+X, y = make_blobs(n_samples = 100, centers = 3, 
+               cluster_std = 1, n_features = 2)
+ 
+plt.scatter(X[:, 0], X[:, 1], s = 40, color = 'g')
+plt.xlabel("X")
+plt.ylabel("Y")
+ 
+plt.show()
+plt.clf()
 
-
-
-            
-            
-            
-    
-
+K = fit(X, y, 0.5, "gaussiano")
