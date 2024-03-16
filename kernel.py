@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from numpy import linalg
 from sklearn.datasets import make_blobs
 from matplotlib import style
+from Gradiente conjugado import CG
 
 #------------------------------------------------------------------------------
 #Implementação de algumas funções de kernel
@@ -55,7 +56,7 @@ def fit(X, y, tau, kernel):
     for i in range(n_samples):
         for j in range(n_samples):
             
-            #Kerneel trick
+            #Kernel trick
             if kernel == "linear":
                 K[i, j] = linear_kernel(X[i], X[j])
             
@@ -64,11 +65,57 @@ def fit(X, y, tau, kernel):
             
             if kernel == "polinomial":
                 K[i, j] = polinomial_kernel(X[i], X[j])
-    return K
+    
+    #Construção da Matriz Omega
+    Omega = np.zeros((n_samples, n_samples))
+    for i in range(n_samples):
+        for j in range(n_samples):
+            Omega[i, j] = y[i] * y[j] * K[i, j]
+    
+    #--------------------------------------------------------------------------
+    #Construção do sistema linear com matriz dos coeficientes
+    #simétrica, definda positiva: Ax = B
+    #--------------------------------------------------------------------------
+    #Construção da matriz A
+    H = Omega + (1/tau) * np.identity(n_samples)
+    s = np.dot(y, np.linalg.inv(H).dot(y))
+    zero_linha = np.zeros((1, n_samples))
+    zero_coluna = np.zeros((n_samples, 1))
+    A = np.block([[s, zero_linha], [zero_coluna, H]])
+    
+    #Construção do vetor B
+    d1 = 0
+    d2 = np.expand_dims(np.ones(100), axis = 1)
+    b1 = np.expand_dims(np.array(np.dot(y, np.linalg.inv(H).dot(y))), axis = 0)
+    B = np.concatenate((np.expand_dims(b1, axis = 1), d2), axis = 0)
+    B = np.squeeze(B)
+    
+    #Aplicação de um método iterativo para a solução do sistema Ax = B
+    solution = CG(A, B, 0.1)
+    
+    #Obtenção do b e dos multiplicadores de Lagrange
+    b = solution[0]
+    alphas = solution[1:] - np.linalg.inv(H).dot(y) * b
+    
+    resultado = {'b': b,
+                 "mult_lagrange": alphas,
+                 "kernel": K}
+    
+    return resultado
+    
+
+def predict_class(alphas, b, K, X):
+    estimado = []
+    for i in range(X.shape[0]):
+        
+    
+    return np.sign
 
 
+#------------------------------------------------------------------------------
 #Realizando um pequeno teste
 #Dataset sintético
+#------------------------------------------------------------------------------
 style.use("fivethirtyeight")
  
 X, y = make_blobs(n_samples = 100, centers = 3, 
@@ -81,4 +128,18 @@ plt.ylabel("Y")
 plt.show()
 plt.clf()
 
-K = fit(X, y, 0.5, "gaussiano")
+resultado = fit(X, y, 0.5, "gaussiano")
+H = O + (1/100) * np.identity(100)
+
+s = np.array(np.dot(y, np.linalg.inv(H).dot(y)))
+s = np.expand_dims(s, axis = 0)
+zero_linha = np.zeros((1, 100))
+zero_coluna = np.zeros((100, 1))
+A = np.block([[s, zero_linha], [zero_coluna, H]])
+d2 = np.expand_dims(np.ones(100), axis = 1)
+b1 = np.expand_dims(np.array(np.dot(y, np.linalg.inv(H).dot(y))), axis = 0)
+B = np.concatenate((np.expand_dims(b1, axis = 1), d2), axis = 0)
+B = np.squeeze(B)
+solution = CG(A, B, 0.1)
+b = solution[0]
+alphas = solution[1:] - np.linalg.inv(H).dot(y) * b
