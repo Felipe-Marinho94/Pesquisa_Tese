@@ -50,7 +50,7 @@ def CSI(X, y, K, rank, kappa = 0.9, delta = 40, tol = 1e-5, centering = True):
     m = min(m, n-2)
     G = np.zeros((n, min(m + delta, n)))
     diagK = np.diag(K)
-    P = range(n) #Pivots
+    P = np.r_[0, 1:n, n] #Pivots
     Q = np.zeros((n, min(m + delta, n))) #matriz Q na decomposição QR
     R = np.zeros((min(m + delta, n), min(m + delta, n))) #matriz R na decomposição QR
     traceK = sum(diagK)
@@ -101,7 +101,59 @@ def CSI(X, y, K, rank, kappa = 0.9, delta = 40, tol = 1e-5, centering = True):
                 kadv = kadv - 1
                 break
             else:
+                jast += (kadv - 1)
                 
+                
+                #Permutação dos indices
+                P[[kadv, jast]] = P[[jast, kadv]] 
+                Dadv[[kadv, jast]] = Dadv[[jast, kadv]]
+                D[[kadv, jast]] = D[[jast, kadv]]
+                A1[[kadv, jast]] = A1[[jast, kadv]]
+                G[[kadv, jast], 0:(kadv-1)] = G[[jast, kadv], 0:(kadv-1)]
+                Q[[kadv, jast], 0:(kadv-1)] = Q[[jast, kadv], 0:(kadv-1)]
+                
+                #Calculando a nova coluna de Cholesky
+                G[kadv,kadv] = Dadv[kadv]
+                G[kadv,kadv] = np.sqrt(G[kadv,kadv])
+                newKcol = K[P[kadv + 1: n], P[kadv]]
+                G[(kadv+1):n, kadv] = 1/(G[kadv, kadv] * (newKcol - G[(kadv + 1): n, 1: (kadv - 1) ] * 
+                                                          G[kadv, 1: (kadv - 1)].T))
+                
+                #Atualização da diagonal
+                Dadv[(kadv+1):n] -= G[(kadv+1):n, kadv]**2
+                Dadv[kadv] = 0
+                
+                #Realizando as decomposições QR
+                if centering:
+                    Gcol = G[:, kadv] - np.apply_along_axis(np.mean, 1, G)
+                else:
+                    Gcol = G[:, kadv]
+                
+                R[1:(kadv-1), kadv] = Q[:, 1:(kadv-1)].T * Gcol
+                Q[:, kadv] = Gcol - Q[:, 1:(kadv-1)] * R[1:(kadv-1), kadv]
+                R[kadv, kadv] = np.norm(Q[:, kadv])
+                
+                #Atualização das quantidades em cachê
+                if centering:
+                    GTG[1:kadv, kadv] = G[:, kadv].T * G[:, kadv]
+                else:
+                    GTG[1:kadv, kadv] = R[1:kadv, 1:kadv].T * R[1:kadv, kadv]
+                
+                GTG[kadv, 1:kadv] = GTG[1:kadv, kadv]
+                QTy[kadv, :] = Q[:, kadv].T * y[P, :]
+                QTyyTQ[kadv, 1:kadv] = QTy[kadv, :] * QTy[1:kadv, :].T
+                QTyyTQ[1:kadv, kadv] = QTyyTQ[kadv, 1:kadv].T
+                
+                #Atualizando os custos
+                A1[kadv:n] = A1[kadv:n] + GTG[kadv,kadv] * ( G[kadv:n,kadv]**2 )
+                A1[kadv:n] = A1[kadv:n] + 2 * G[kadv:n,kadv] * ( G[kadv:n,1:kadv-1] * GTG[1:kadv-1,kadv] )
 
 
-
+    #Calculando os custos restantes
+    A2 = np.sum((G[:, 1:kadv] * (R[1:kadv, 1:kadv].T * QTy[1:kadv, :]))**2, axis=1)
+    A3 = np.sum((G[:, 1:kadv] * R[1:kadv, 1:kadv].T)**2, axis = 1)
+    
+    #Laço principal
+    while k < m:
+        k += 1
+        
