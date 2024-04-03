@@ -16,6 +16,7 @@ from matplotlib import style
 from numpy.random import rand
 from Gradiente_conjugado import ichol
 import numpy as np
+from numpy import linalg
 
 #------------------------------------------------------------------------------
 #Realizando um pequeno teste
@@ -24,7 +25,7 @@ import numpy as np
 style.use("fivethirtyeight")
  
 X, y = make_blobs(n_samples = 300, centers = 2, 
-               cluster_std = 2, n_features = 2)
+               cluster_std = 3, n_features = 2)
  
 
 c = np.random.randint(1, 2, size=300)
@@ -43,7 +44,7 @@ X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size = 0.3,
                                                         random_state= 49)
 
 resultado_LSSVM = fit_class(X_treino, y_treino, 0.5, "gaussiano")
-resultado_LSSVM_ADMM = fit_LSSVM_ADMM(X_treino, y_treino, "gaussiano", 0.5)
+resultado_LSSVM_ADMM = fit_LSSVM_ADMM(X_treino, y_treino, 0.5,  "gaussiano")
 alphas = resultado_LSSVM['mult_lagrange']
 alphas_lssvm_admm = resultado_LSSVM_ADMM['mult_lagrange']
 b = resultado_LSSVM['b']
@@ -52,3 +53,13 @@ lssvm_admm_hat = predict_class(alphas, 0, "gaussiano", X_treino, y_treino, X_tes
 
 accuracy_score(y_teste, lssvm_hat)
 accuracy_score(y_teste, lssvm_admm_hat)
+
+n_samples, n_features = X_treino.shape
+def gaussiano_kernel(x, y, gamma = 1):
+    return np.exp(-gamma * linalg.norm(x - y)**2) 
+
+#Matriz de Gram
+K = np.zeros((n_samples, n_samples))
+for i in range(n_samples):
+    for j in range(n_samples):
+        K[i, j] = gaussiano_kernel(X[i], X[j])

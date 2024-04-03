@@ -63,12 +63,12 @@ MAX_ERROR = 10**-3
 
 
 #Decomposição de Cholesky imcompleta
-def ichol( A ):
-    mat = np.copy( A )
+def ichol(A):
+    mat = np.copy(A)
     n = mat.shape[1]
     
     for k in range(n):
-        mat[k,k] = math.sqrt( mat[k,k] )
+        mat[k,k] = np.sqrt(mat[k,k])
         for i in range(k+1, n):
             if mat[i,k] != 0:
                 mat[i,k] = mat[i,k] / mat[k,k]
@@ -130,5 +130,4 @@ B = np.array([2, -8])
 CG(A, B, 0.01)
 x_inicial = np.zeros(2)
 CG_conditioned(A, x_inicial, B)
-
 

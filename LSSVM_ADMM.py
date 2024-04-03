@@ -15,6 +15,9 @@ from ADMM import ADMM
 #------------------------------------------------------------------------------
 #Implementação de algumas funções relevantes
 #------------------------------------------------------------------------------
+def is_pos_def(x):
+    return np.all(np.linalg.eigvals(x) > 0)
+
 def linear_kernel(x, x_k):
     return np.dot(x, x_k)
 
@@ -27,7 +30,7 @@ def polinomial_kernel(x, y, C = 1, d = 3):
     
     return (np.dot(x, y) + C)**d
 
-def gaussiano_kernel(x, y, gamma = 0.5):
+def gaussiano_kernel(x, y, gamma = 1):
     return np.exp(-gamma * linalg.norm(x - y)**2)
 
 
@@ -38,7 +41,7 @@ def gaussiano_kernel(x, y, gamma = 0.5):
 #do algoritmo Alternating Directions Multipliers Method (ADMM)
 ##Solução aproximada de problemas do tipo min ||b - Ax||^(2) + lambda*||alpha||_{1}
 #------------------------------------------------------------------------------
-def fit_LSSVM_ADMM(X, y, kernel, tau):
+def fit_LSSVM_ADMM(X, y, tau, kernel):
     #Input
     #X: Matriz de Dados (array n x p)
     #y: Vetor de rótulos (classificação) 
@@ -80,7 +83,7 @@ def fit_LSSVM_ADMM(X, y, kernel, tau):
     A = P.T
     
     #Construção do vetor de coeficientes b
-    b = np.dot(linalg.inv(tau * np.eye(n_samples) + np.dot(P, P.T)), np.dot(P.T, y))
+    b = np.dot(linalg.inv(tau * np.identity(n_samples) + np.dot(P, P.T)), np.dot(P.T, y))
     b = np.expand_dims(b, axis = 1)
     
     #Solução do sistema KKT em conjunto com o LASSO
