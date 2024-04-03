@@ -19,8 +19,12 @@ def Sthresh(x, gamma):
 
 #------------------------------------------------------------------------------
 #Função para algoritmo ADMM
+#Solução aproximada de problemas do tipo min ||b - Ax||^(2) + lambda*||alpha||_{1}
+#Input
+#A: matriz dos coeficiente do sistema (A = P', onde K = PP')
+#b: vetor de termos independentes (tau*I + PP')^(-1)P'y
 #------------------------------------------------------------------------------
-def ADMM(A, y):
+def ADMM(A, b):
 
     m, n = A.shape
     w, v = np.linalg.eig(A.T.dot(A))
@@ -37,7 +41,7 @@ def ADMM(A, y):
 
     #Pré-calcula algumas multiplicações salvas
     AtA = A.T.dot(A)
-    Aty = A.T.dot(y)
+    Atb = A.T.dot(b)
     Q = AtA + rho*np.identity(n)
     Q = np.linalg.inv(Q)
 
@@ -46,7 +50,7 @@ def ADMM(A, y):
     while(i < MAX_ITER):
 
         #Passo de minimização utilizando OLS
-        xhat = Q.dot(Aty + rho*(zhat - u))
+        xhat = Q.dot(Atb + rho*(zhat - u))
 
         #Minimização de z via soft-thresholding
         zhat = Sthresh(xhat + u, l/rho)
@@ -71,7 +75,8 @@ x[positions] = amplitudes
 
 y = A.dot(x) + np.random.randn(50, 1)
 
-xhat, rho, l = ADMM(A, y)
+xhat, rho, l = ADMM(A, b)
+b = np.expand_dims(b, axis = 1)
 
 plt.plot(x, label='Original')
 plt.plot(xhat, label = 'Estimativa')
