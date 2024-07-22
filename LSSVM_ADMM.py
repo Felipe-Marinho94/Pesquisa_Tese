@@ -51,6 +51,7 @@ def fit_LSSVM_ADMM(X, y, tau, kernel):
     #Output
     #x_ótimo: Vetor solução aproximado do sistema KKT Ax = b (array n+1 x 1)
     #x_ótimo = [alphas b].T
+    #b = 0
     
     
     #--------------------------------------------------------------------------
@@ -77,7 +78,7 @@ def fit_LSSVM_ADMM(X, y, tau, kernel):
     #Decomposição da matriz de kernel
     #--------------------------------------------------------------------------
     #Cholesky Incompleta
-    P = ichol(K)
+    P = np.linalg.cholesky(K + 0.01 * np.diag(np.full(K.shape[0], 1)))
     
     #Construção da matriz dos coeficiente A
     A = P.T
@@ -95,7 +96,7 @@ def fit_LSSVM_ADMM(X, y, tau, kernel):
     resultado = {"mult_lagrange": alphas,
                  "kernel": K,
                  "A": A,
-                 "b": b}
+                 "b": 0}
     
     return resultado
 

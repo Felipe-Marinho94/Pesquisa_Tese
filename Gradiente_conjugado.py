@@ -62,13 +62,17 @@ MAX_ITERATIONS = 10**4
 MAX_ERROR = 10**-3
 
 
+x = np.array([[2,3,4,5]], dtype=float).T
+A = np.array([[3,1,0,0],[1,4,1,3],[0,1,10,0],[0,3,0,3]], dtype=float)
+b = np.array([[1,1,1,1]], dtype=float).T
+
 #Decomposição de Cholesky imcompleta
-def ichol(A):
-    mat = np.copy(A)
+def ichol( A ):
+    mat = np.copy( A ) + 0.01 * 0.01 * np.diag(np.full(A.shape[0], 1))
     n = mat.shape[1]
     
     for k in range(n):
-        mat[k,k] = np.sqrt(mat[k,k])
+        mat[k,k] = math.sqrt( mat[k,k] )
         for i in range(k+1, n):
             if mat[i,k] != 0:
                 mat[i,k] = mat[i,k] / mat[k,k]
@@ -120,9 +124,7 @@ def CG_conditioned( A,x,b ):
         
     return x
 
-#------------------------------------------------------------------------------
-#Testando as funções
-#------------------------------------------------------------------------------
+#Testando a função
 A = np.array([[3, 2],
               [2, 6]])
 
