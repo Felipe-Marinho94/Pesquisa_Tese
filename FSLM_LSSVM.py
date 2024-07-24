@@ -13,7 +13,7 @@ from numpy import linalg
 import math as mt
 import matplotlib.pyplot as plt
 import seaborn as sns
-import kernel 
+from kernel import linear_kernel, polinomial_kernel, gaussiano_kernel
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 
@@ -80,19 +80,19 @@ def fit_FSLM_LSSVM(X, y, kappa, mu, Red, N, kernel, tau, epsilon):
 
     #Construção do Vetor B
     B = np.concatenate((np.expand_dims(np.zeros([1]), axis=1),
-                         np.expand_dims(np.ones(100), axis = 1)), axis=0)
+                         np.expand_dims(np.ones(n_samples), axis = 1)), axis=0)
     
     #Inicialização aleatória do vetor de multiplicadores de Lagrange
     z_inicial = np.random.normal(loc=0, scale=1, size=(n_samples + 1, 1))
     z = z_inicial
 
     #Listas para armazenamento
-    idx_suporte = []
+    idx_suporte = [range(0, n_samples)]
     erros = []
     mult_lagrange = []
 
     #Loop de iteração
-    for k in range(0, N + 1):
+    for k in range(1, N + 1):
 
         #Calculando o erro associado
         erro = B - np.matmul(A, z)
@@ -113,39 +113,49 @@ def fit_FSLM_LSSVM(X, y, kappa, mu, Red, N, kernel, tau, epsilon):
         if k > kappa and k < N - kappa:
             
             #Realização da poda
-            n_colunas_removidas = int((n_samples - n_samples * Red)/(N - 2 * kappa))
+            n_colunas_removidas = int((n_samples - (n_samples * Red))/(N - (2 * kappa)))
 
             #Ordenar os menores valores absolutos dos multiplicadores de Lagrange
-            idx_remover = np.abs(np.squeeze(z)).argsort()[:n_colunas_removidas]
+            idx_remover = np.argsort(np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
+
+            #Armazenando os índices dos vetores de suporte a cada iteração
+            idx_suporte.append(np.argsort(np.abs(np.squeeze(z)))[n_colunas_removidas:])
 
             #Remoção das colunas de A e linhas de z
             A = np.delete(A, idx_remover, axis = 1)
             z = np.delete(z, idx_remover, axis = 0)
 
-            #Outra condição
-            if k == N- kappa:
 
-                #Realização da poda
-                n_colunas_removidas = int((n_samples - n_samples * Red)%(N - 2 * kappa))
+        #Outra condição
+        if k == N - kappa:
 
-                #Ordenar os menores valores absolutos dos multiplicadores de Lagrange
-                idx_remover = np.abs(np.squeeze(z)).argsort()[:n_colunas_removidas]
+            #Realização da poda
+            n_colunas_removidas = int(((n_samples - (n_samples * Red))/(N - (2 * kappa))) + ((n_samples - n_samples * Red)%(N - (2 * kappa))))
 
-                #Remoção das colunas de A e linhas de z
-                A = np.delete(A, idx_remover, axis = 1)
-                z = np.delete(z, idx_remover, axis = 0)
-            
-            #Armazenando o erro e os índices dos vetores de suporte a cada iteração
-            erros.append(np.mean(erro**2))
-            idx_suporte.append(-np.abs(np.squeeze(z)).argsort()[:(len(z) - n_colunas_removidas)])
+            #Ordenar os menores valores absolutos dos multiplicadores de Lagrange
+            idx_remover = np.argsort(np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
 
-            #Critério de parada
-            if np.abs(np.mean(erro_novo**2) - np.mean(erro**2)) < epsilon:
-                break
-    #
+            #Armazenando os índices dos vetores de suporte a cada iteração
+            idx_suporte.append(np.argsort(np.abs(np.squeeze(z)))[n_colunas_removidas:])
 
+            #Remoção das colunas de A e linhas de z
+            A = np.delete(A, idx_remover, axis = 1)
+            z = np.delete(z, idx_remover, axis = 0)
+
+
+        #Armazenando o erro
+        erros.append(np.mean(erro**2))
+
+        #Critério de parada
+        if np.abs(np.mean(erro_novo**2)) < epsilon:
+            break
+
+    mult_lagrange = np.zeros(n_samples)
+    mult_lagrange[idx_suporte[len(idx_suporte)-1]] = np.squeeze(z)[1:len(z)]
+    
     #Resultados
-    resultados = {"Multiplicadores_de_Lagrange": np.squeeze(z),
+    resultados = {"mult_lagrange": mult_lagrange,
+                  "b": np.squeeze(z)[0],
                   "Erros": erros,
                   "Indices_multiplicadores": idx_suporte}
 
@@ -157,7 +167,8 @@ def fit_FSLM_LSSVM(X, y, kappa, mu, Red, N, kernel, tau, epsilon):
 #Implementação do método predict() para a proposta FSLM_LSSVM 
 # considerando um problema de classificação
 #------------------------------------------------------------------------------
-def predict_class(alphas, b, kernel, X_treino, y_treino, X_teste):
+def predict_class_FSLM_LSSVM(alphas, b, kernel, X_treino, y_treino, X_teste):
+    
     #Inicialização
     estimado = np.zeros(X_teste.shape[0])
     n_samples_treino = X_treino.shape[0]
@@ -183,44 +194,41 @@ def predict_class(alphas, b, kernel, X_treino, y_treino, X_teste):
     return estimado
 
 #Realização de alguns testes
-X = np.random.normal(0, 1 , size=(100, 5))
-y = np.random.normal(0, 1, 100)
-resultados = fit_FSLM_LSSVM(X, y, 2, 0.3, 0.5, 50, "gaussiano", 2, 0.001)
+X = np.random.normal(0, 1 , size=(1000, 5))
+y = np.random.normal(0, 1, 1000)
+resultados = fit_FSLM_LSSVM(X, y, 2, 0.5, 0.5, 20, "gaussiano", 2, 0.001)
 resultados['Erros']
 sns.lineplot(resultados, x=range(0,len(resultados['Erros'])), y = resultados['Erros'])
 plt.xlabel('Iteração')
 plt.ylabel('Erro Médio Quadrático (MSE)')
 plt.show()
 
-
 #Gráfico de dispersão para a Matriz X
 sns.set_theme(style="white")
 len(resultados['Indices_multiplicadores'])
-index = -resultados['Indices_multiplicadores'][0]
+index = resultados['Indices_multiplicadores'][0]
 index.shape
-
+resultados['Indices_multiplicadores']
 fig = plt.subplot(2, 2, 1)
 fig.scatter(x=X[:,1], y=X[:,2])
 fig.plot(X[index,1], X[index,2], "or")
 
-index = -resultados['Indices_multiplicadores'][15]
+index = resultados['Indices_multiplicadores'][5]
 index.shape
 fig1 = plt.subplot(2, 2, 2)
 fig1.scatter(x=X[:,1], y=X[:,2])
 fig1.plot(X[index,1], X[index,2], "or")
 
-index = -resultados['Indices_multiplicadores'][30]
+index = -resultados['Indices_multiplicadores'][10]
 index.shape
 fig2 = plt.subplot(2, 2, 3)
 fig2.scatter(x=X[:,1], y=X[:,2])
 fig2.plot(X[index,1], X[index,2], "or")
 
-index = -resultados['Indices_multiplicadores'][44]
+index = -resultados['Indices_multiplicadores'][16]
 index.shape
 fig3 = plt.subplot(2, 2, 4)
 fig3.scatter(x=X[:,1], y=X[:,2])
 fig3.plot(X[index,1], X[index,2], "or")
 
 plt.show()
-
--resultados['Indices_multiplicadores'][0]

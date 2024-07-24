@@ -104,7 +104,7 @@ def fit_LSSVM_ADMM(X, y, tau, kernel):
 #Implementação do método predict() para a primeira proposta considerando um
 #problema de classificação
 #------------------------------------------------------------------------------
-def predict_class(alphas, b, kernel, X_treino, y_treino, X_teste):
+def predict_class_LSSVM_ADMM(alphas, b, kernel, X_treino, y_treino, X_teste):
     #Inicialização
     estimado = np.zeros(X_teste.shape[0])
     n_samples_treino = X_treino.shape[0]
@@ -125,7 +125,7 @@ def predict_class(alphas, b, kernel, X_treino, y_treino, X_teste):
                 K[i, j] = gaussiano_kernel(X_teste[i], X_treino[j])
             
         #Realização da predição
-        estimado[i] = np.sign(np.sum(np.multiply(np.multiply(alphas, y_treino), K[i])) + b)
+        estimado[i] = np.sign(np.sum(np.multiply(alphas, K[i])) + b)
     
     return estimado
 
