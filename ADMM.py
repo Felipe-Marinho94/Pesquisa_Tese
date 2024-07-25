@@ -24,7 +24,7 @@ def ADMM(A, y):
 
     m, n = A.shape
     w, v = np.linalg.eig(A.T.dot(A))
-    MAX_ITER = 10000
+    MAX_ITER = 50000
 
     "Function to caluculate min 1/2(y - Ax) + l||x||"
     "via alternating direction methods"
