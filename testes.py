@@ -10,6 +10,7 @@ from matplotlib import style
 from kernel import predict_class, fit_class, fit_regre, predict_regre
 from LSSVM_ADMM import fit_LSSVM_ADMM, predict_class_LSSVM_ADMM
 from FSLM_LSSVM import fit_FSLM_LSSVM
+from RFSLM_LSSVM import fit_RFSLM_LSSVM
 from métricas import metricas
 from time import process_time
 
@@ -20,7 +21,7 @@ from time import process_time
 style.use("fivethirtyeight")
  
 X, y = make_blobs(n_samples = 2000, centers = 2, 
-               cluster_std = 2.5, n_features = 2)
+               cluster_std = 2, n_features = 2)
  
 
 plt.scatter(X[:, 0], X[:, 1], s = 40, color = 'g')
@@ -81,6 +82,20 @@ b_FSLM_LSSVM = resultado_FSLM_LSSVM['b']
 b_FSLM_LSSVM
 FSLM_LSSVM_hat = predict_class(alphas_FSLM_LSSVM, b_FSLM_LSSVM, "gaussiano", X_treino, y_treino, X_teste)
 metricas(y_teste, FSLM_LSSVM_hat)
+
+#Proposta RFSLM_LSSVM
+tic = process_time()
+resultado_RFSLM_LSSVM = fit_RFSLM_LSSVM(X_treino, y_treino, 0.1, 0.01, 0.5, 50, 'gaussiano', 5, 2, 0.001)
+toc = process_time()
+time_RFSLM_LSSVM = toc - tic
+time_RFSLM_LSSVM
+
+alphas_RFSLM_LSSVM = resultado_RFSLM_LSSVM['mult_lagrange']
+alphas_RFSLM_LSSVM
+b_RFSLM_LSSVM = resultado_RFSLM_LSSVM['b']
+b_RFSLM_LSSVM
+RFSLM_LSSVM_hat = predict_class(alphas_FSLM_LSSVM, b_FSLM_LSSVM, "gaussiano", X_treino, y_treino, X_teste)
+metricas(y_teste, RFSLM_LSSVM_hat)
 
 
 #------------------------------------------------------------------------------

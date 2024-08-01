@@ -86,7 +86,7 @@ def Construct_A_b(X, y, kernel, tau):
 #----------------------------------------------------------------
 #Implementação do Método Fit() para a proposta FSLM-LSSVM
 
-def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
+def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, phi, epsilon):
     """
     Interface do método
     Ação: Este método visa realizar a poda iterativa dos vetores
@@ -103,13 +103,11 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
     kernel: função de kernel utilizada (string: "linear", "polinomial", "gaussiano");
     #tau: iterações de corte (escalar).
     #epsilon: Tolerância (Critério de parada)
+    #phi: Regularização do LSSVM
 
     OUTPUT:
     vetor esparso de multiplicadores de Lagrange estimados. 
     """
-
-    #Percentual de treino que representa os vetores de suporte
-    Fed = 1 - Red
 
     #Gerando os indices para os vetores de suporte
     indices = np.arange(0, X.shape[0])
@@ -119,7 +117,7 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
     y = pd.DataFrame(y)
 
     #Inicialização aleatória do conjunto com vetores de suporte
-    X_rest, X_vs, y_rest, y_vs, indices_rest, indices_vs = train_test_split(X, y, indices, test_size= Fed)
+    X_rest, X_vs, y_rest, y_vs, indices_rest, indices_vs = train_test_split(X, y, indices, test_size= 1-Red)
     X_vs = np.array(X_vs)
     y_vs = np.squeeze(np.array(y_vs))
 
@@ -130,30 +128,32 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
     #Listas para armazenamento
     erros = []
     mult_lagrange = []
+    idx_suporte = [range(0, X.shape[0])]
 
     #Loop de iteração
     for k in range(1, N+1):
         
         #Cálculo da matriz A e vetor b para o conjunto de vetores suporte
-        A = Construct_A_b(X_vs, y_vs, kernel, tau)['A']
-        B = Construct_A_b(X_vs, y_vs, kernel, tau)['B']
+        A = Construct_A_b(X_vs, y_vs, kernel, phi)['A']
+        B = Construct_A_b(X_vs, y_vs, kernel, phi)['B']
 
         #Cálculo do erro para a k-ésima iteração
         erro = B - np.matmul(A, z)
 
         #Atualização
         z_anterior = z
-        z = z + np.matmul(linalg.inv(np.matmul(A.T, A) + 0.1 * np.diag(np.matmul(A.T, A))), np.matmul(A.T, erro))
+        z = z + np.matmul(linalg.inv(np.matmul(A.T, A) + mu * np.diag(np.matmul(A.T, A))), np.matmul(A.T, erro))
 
         #Condição para manter a atualização
         erro_novo = B - np.matmul(A, z)
+        
         if np.mean(erro_novo**2) < np.mean(erro**2):
             z = z
         else:
             mu = mu/10
             z = z_anterior
         
-        if k in np.arange(5, N, 5, dtype='int'):
+        if k in np.arange(tau, N, tau, dtype='int'):
 
             #Número de vetores suporte removidos dados pela porcentagem de redução por iteração de corte
             numero_vetores_suporte_removidos = int(Percent * X_vs.shape[0])
@@ -173,7 +173,7 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
 
             #Seleção aleatória de Percent dados para serem
             #adicionados ao conjunto de vetores de suporte
-            X_add, X_permanece, y_add, y_permanece, indices_add, indices_permanece = train_test_split(X_rest, y_rest, indices_rest, train_size=Percent)
+            X_add, X_permanece, y_add, y_permanece, indices_add, indices_permanece = train_test_split(X_rest, y_rest, indices_rest, train_size=numero_vetores_suporte_removidos)
             X_vs = np.append(X_vs, X_add, axis = 0)
             y_vs = np.append(y_vs, y_add)
             indices_vs = np.append(indices_vs, indices_add)
@@ -197,14 +197,16 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
 
             #Atualização dos multiplicadores de Lagrange
             z = np.append(z, z_percent, axis=0)
+            
         
-        #Armazenando o erro
+        #Armazenando o erro e os indices de vetores de suporte
         erros.append(np.mean(erro**2))
+        idx_suporte.append(indices_vs)
 
         #Critério de parada
         if np.abs(np.mean(erro_novo**2)) < epsilon:
             break
-    
+
 
     mult_lagrange = np.zeros(X.shape[0])
     mult_lagrange[indices_vs] = np.squeeze(z)[1:len(z)]
@@ -213,7 +215,7 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
     resultados = {"mult_lagrange": mult_lagrange,
                   "b": np.squeeze(z)[0],
                   "Erros": erros,
-                  "Indices_multiplicadores": indices_vs}
+                  "Indices_multiplicadores": idx_suporte}
     
     return(resultados)
 
@@ -222,18 +224,9 @@ def fit_RFSLM_LSSVM(X, y, Percent, mu, Red, N, kernel, tau, epsilon):
 
 
 #Realização de alguns testes
-x = np.array([[1, 2, 3],
-              [4, 5, 6],
-              [7, 8, 9]])
-
-y = np.array([1, 1, -1])
-idx = range(x.shape[0])
-X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(x, y, idx, test_size=0.1)
-idx_train = np.delete(idx_train, [0])
-
 X = np.random.normal(0, 1 , size=(1000, 5))
 y = np.random.normal(0, 1, 1000)
-resultados = fit_RFSLM_LSSVM(X, y, 0.5, 0.5, 0.5, 20, 'gaussiano', 2, 0.001)
+resultados = fit_RFSLM_LSSVM(X, y, 0.1, 0.01, 0.3, 100, 'gaussiano', 5, 2, 0.001)
 resultados['Erros']
 sns.lineplot(resultados, x=range(0,len(resultados['Erros'])), y = resultados['Erros'])
 plt.xlabel('Iteração')
