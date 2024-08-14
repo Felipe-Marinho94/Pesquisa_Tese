@@ -92,6 +92,7 @@ def fit_CFGSMO_LSSVM(X, y, gamma, kernel, epsilon, N):
     
     #Regularização de Tichonov
     K_tilde = K + (1/gamma)*np.diag(np.full(K.shape[0], 1))
+    
 
     #Inicialização
     #Multiplicadores de Lagrange
@@ -126,7 +127,12 @@ def fit_CFGSMO_LSSVM(X, y, gamma, kernel, epsilon, N):
         r = (t[i] - t[j])/tau
         s = np.eye(1, n_samples, i)[0] - np.eye(1, n_samples, j)[0] + r * s
         t = K_tilde[:, j] - K_tilde[:, i] + r * t
-        tau = t[j] - t[i]
+        
+        #Reinicialização
+        if i != j:
+            tau = t[j] - t[i]
+        else:
+            tau = 1
 
         #Calculando o parâmetro rho
         rho = (Gradient[i] - Gradient[j])/tau
@@ -141,7 +147,7 @@ def fit_CFGSMO_LSSVM(X, y, gamma, kernel, epsilon, N):
         erro.append(np.argmax(Gradient) - np.argmin(Gradient))
 
         #Condição de parada
-        if np.abs(np.argmax(Gradient) - np.argmin(Gradient)) <= epsilon:
+        if np.abs(np.max(Gradient) - np.min(Gradient)) <= epsilon:
             break
     
     #Resultados

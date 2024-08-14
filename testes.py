@@ -11,6 +11,7 @@ from kernel import predict_class, fit_class, fit_regre, predict_regre
 from LSSVM_ADMM import fit_LSSVM_ADMM, predict_class_LSSVM_ADMM
 from FSLM_LSSVM import fit_FSLM_LSSVM
 from RFSLM_LSSVM import fit_RFSLM_LSSVM
+from CFGSMO_LSSVM import fit_CFGSMO_LSSVM
 from métricas import metricas
 from time import process_time
 
@@ -97,7 +98,22 @@ b_RFSLM_LSSVM
 RFSLM_LSSVM_hat = predict_class(alphas_FSLM_LSSVM, b_FSLM_LSSVM, "gaussiano", X_treino, y_treino, X_teste)
 metricas(y_teste, RFSLM_LSSVM_hat)
 
+#Proposta CFGSMO_LSSVM
+tic = process_time()
+resultado_CFGSMO_LSSVM = fit_CFGSMO_LSSVM(X_treino, y_treino, 100, 'gaussiano', 0.01, 100)
+toc = process_time()
+time_CFGSMO_LSSVM = toc - tic
+time_CFGSMO_LSSVM
 
+alphas_CFGSMO_LSSVM = resultado_CFGSMO_LSSVM['mult_lagrange']
+alphas_CFGSMO_LSSVM
+for i in alphas_CFGSMO_LSSVM:
+    print(i)
+
+CFGSMO_LSSVM_hat = predict_class_LSSVM_ADMM(alphas_CFGSMO_LSSVM, "gaussiano", X_treino, X_teste)
+metricas(y_teste, CFGSMO_LSSVM_hat)
+
+CFGSMO_LSSVM_hat
 #------------------------------------------------------------------------------
 #Realizando um pequeno teste
 #Dataset sintético regressão
