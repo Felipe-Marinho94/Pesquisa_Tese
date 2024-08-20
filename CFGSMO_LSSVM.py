@@ -93,13 +93,12 @@ def fit_CFGSMO_LSSVM(X, y, gamma, kernel, epsilon, N):
     #Regularização de Tichonov
     K_tilde = K + (1/gamma)*np.diag(np.full(K.shape[0], 1))
     
-
     #Inicialização
     #Multiplicadores de Lagrange
     alphas = np.zeros(n_samples)
 
     #Gradiente
-    Gradient = np.random.normal(loc = 0, scale=1, size=n_samples)
+    Gradient = -y
 
     #direções conjugadas
     s = np.zeros(n_samples)
@@ -124,18 +123,13 @@ def fit_CFGSMO_LSSVM(X, y, gamma, kernel, epsilon, N):
         i, j = FGWSS(Gradient, K_tilde)
 
         #Realizando as atualizações
-        r = (t[i] - t[j])/tau
+        r = (t[j] - t[i])/tau
         s = np.eye(1, n_samples, i)[0] - np.eye(1, n_samples, j)[0] + r * s
-        t = K_tilde[:, j] - K_tilde[:, i] + r * t
-        
-        #Reinicialização
-        if i != j:
-            tau = t[j] - t[i]
-        else:
-            tau = 1
+        t = K_tilde[:, i] - K_tilde[:, j] + r * t
+        tau = t[i] - t[j]
 
         #Calculando o parâmetro rho
-        rho = (Gradient[i] - Gradient[j])/tau
+        rho = (Gradient[j] - Gradient[i])/tau
 
         #Atualização da variável Dual
         alphas = alphas + rho * s
@@ -144,7 +138,7 @@ def fit_CFGSMO_LSSVM(X, y, gamma, kernel, epsilon, N):
         Gradient = Gradient + rho * t
 
         #Armazenando o erro
-        erro.append(np.argmax(Gradient) - np.argmin(Gradient))
+        erro.append(np.max(Gradient) - np.min(Gradient))
 
         #Condição de parada
         if np.abs(np.max(Gradient) - np.min(Gradient)) <= epsilon:
@@ -167,5 +161,12 @@ np.argmax(G/A)
 X = np.random.normal(10, 1 , size=(100, 5))
 y = np.random.normal(10, 1, 100)
 
-resultados = fit_CFGSMO_LSSVM(X, y, 100, 'gaussiano', 0.01, 80)
+resultados = fit_CFGSMO_LSSVM(X, y, 100, 'gaussiano', 0.01, 200)
 len(resultados['mult_lagrange'])
+resultados['erro']
+sns.lineplot(resultados, x=range(0,len(resultados['erro'])), y = resultados['erro'])
+plt.xlabel('Iteração')
+plt.ylabel('Erro Médio Quadrático (MSE)')
+plt.show()
+
+10* np.array([1, 2, 3])
