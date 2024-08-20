@@ -158,10 +158,10 @@ A = 2 * (K[1, 1] * np.ones(K.shape[0]) + np.diag(K) - K[1, :] - K[:, 1])
 G = np.random.normal(loc=0, scale=1, size=(100))
 np.argmax(G/A)
 
-X = np.random.normal(10, 1 , size=(100, 5))
-y = np.random.normal(10, 1, 100)
+X = np.random.normal(10, 1 , size=(1000, 5))
+y = np.random.normal(10, 1, 1000)
 
-resultados = fit_CFGSMO_LSSVM(X, y, 100, 'gaussiano', 0.01, 200)
+resultados = fit_CFGSMO_LSSVM(X, y, 100, 'gaussiano', 0.01, 500)
 len(resultados['mult_lagrange'])
 resultados['erro']
 sns.lineplot(resultados, x=range(0,len(resultados['erro'])), y = resultados['erro'])
