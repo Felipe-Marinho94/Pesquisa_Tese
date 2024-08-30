@@ -12,6 +12,8 @@ from LSSVM_ADMM import fit_LSSVM_ADMM, predict_class_LSSVM_ADMM
 from FSLM_LSSVM import fit_FSLM_LSSVM
 from RFSLM_LSSVM import fit_RFSLM_LSSVM
 from CFGSMO_LSSVM import fit_CFGSMO_LSSVM
+from SCG_LSSVM import fit_SCG_LSSVM
+from TCSMO_LSSVM import fit_TCSMO_LSSVM
 from métricas import metricas
 from time import process_time
 
@@ -21,8 +23,8 @@ from time import process_time
 #------------------------------------------------------------------------------
 style.use("fivethirtyeight")
  
-X, y = make_blobs(n_samples = 2000, centers = 2, 
-               cluster_std = 2, n_features = 2)
+X, y = make_blobs(n_samples = 2500, centers = 2, 
+               cluster_std = 2.5, n_features = 2)
  
 
 plt.scatter(X[:, 0], X[:, 1], s = 40, color = 'g')
@@ -72,7 +74,7 @@ LSSVM_ADMM_hat
 
 #Proposta FSLM_LSSVM
 tic = process_time()
-resultado_FSLM_LSSVM = fit_FSLM_LSSVM(X_treino, y_treino, 2, 0.3, 0.5, 50, "gaussiano", 2, 0.001)
+resultado_FSLM_LSSVM = fit_FSLM_LSSVM(X_treino, y_treino, 2, 0.3, 0.5, 80, "gaussiano", 2, 0.001)
 toc = process_time()
 time_FSLM_LSSVM = toc - tic
 time_FSLM_LSSVM
@@ -100,7 +102,7 @@ metricas(y_teste, RFSLM_LSSVM_hat)
 
 #Proposta CFGSMO_LSSVM
 tic = process_time()
-resultado_CFGSMO_LSSVM = fit_CFGSMO_LSSVM(X_treino, y_treino, 100, 'gaussiano', 0.01, 100)
+resultado_CFGSMO_LSSVM = fit_CFGSMO_LSSVM(X_treino, y_treino, 100, 'gaussiano', 0.001, 500)
 toc = process_time()
 time_CFGSMO_LSSVM = toc - tic
 time_CFGSMO_LSSVM
@@ -114,6 +116,42 @@ CFGSMO_LSSVM_hat = predict_class_LSSVM_ADMM(alphas_CFGSMO_LSSVM, "gaussiano", X_
 metricas(y_teste, CFGSMO_LSSVM_hat)
 
 CFGSMO_LSSVM_hat
+
+
+#Proposta SCG_LSSVM
+tic = process_time()
+resultado_SCG_LSSVM = fit_SCG_LSSVM(X_treino, y_treino,  0.5, 'gaussiano', 1.5, 0.01, 100)
+toc = process_time()
+time_SCG_LSSVM = toc - tic
+time_SCG_LSSVM
+
+alphas_SCG_LSSVM = resultado_SCG_LSSVM['mult_lagrange']
+alphas_SCG_LSSVM
+for i in alphas_SCG_LSSVM:
+    print(i)
+
+SCG_LSSVM_hat = predict_class_LSSVM_ADMM(alphas_SCG_LSSVM, "gaussiano", X_treino, X_teste)
+metricas(y_teste, SCG_LSSVM_hat)
+
+SCG_LSSVM_hat
+
+#Proposta TCSMO_LSSVM
+tic = process_time()
+resultado_TCSMO_LSSVM = fit_TCSMO_LSSVM(X_treino, y_treino,  0.5, 'gaussiano', 0.01, 100)
+toc = process_time()
+time_TCSMO_LSSVM = toc - tic
+time_TCSMO_LSSVM
+
+alphas_TCSMO_LSSVM = resultado_TCSMO_LSSVM['mult_lagrange']
+alphas_TCSMO_LSSVM
+for i in alphas_TCSMO_LSSVM:
+    print(i)
+
+TCSMO_LSSVM_hat = predict_class_LSSVM_ADMM(alphas_TCSMO_LSSVM, "gaussiano", X_treino, X_teste)
+metricas(y_teste, TCSMO_LSSVM_hat)
+
+TCSMO_LSSVM_hat
+
 #------------------------------------------------------------------------------
 #Realizando um pequeno teste
 #Dataset sintético regressão
