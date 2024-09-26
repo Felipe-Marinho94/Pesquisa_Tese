@@ -79,9 +79,18 @@ def HAN_BASIC(K, b, r, N):
     else:
         I = J
     
+    K_reduzido = []
+    for i in I:
+        for j in J:
+            K_reduzido.append(K[i, j])
+    
+    K_reduzido = np.array(K_reduzido)
+    K_reduzido = K_reduzido.reshape((len(I), len(J)))
+
+
     resultados = {'I': I,
                   'J': J,
-                  'K_reduzido': K[I, J]}
+                  'K_reduzido': K_reduzido}
     
     return(resultados)
 
@@ -139,11 +148,19 @@ I_hat
 len(J)
 I
 J
-K[I, J]
+K[[1, 3, 4], J]
 resultados = HAN_BASIC(K, 10, 70, 10)
-resultados['K_reduzido']
-resultados['I']
-resultados['J']
+resultados['K_reduzido'].shape
+resultados['I'].shape
+resultados['J'].shape
 I = resultados['I']
 J = resultados['J']
-K[I, J].shape
+K_reduzido = []
+for i in I:
+    for j in J:
+        K_reduzido.append(K[i, j])
+
+K_reduzido = np.array(K_reduzido)
+print(K_reduzido)
+K_reduzido = K_reduzido.reshape((10, 10))
+K_reduzido.shape
