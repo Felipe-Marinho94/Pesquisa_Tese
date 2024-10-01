@@ -14,6 +14,7 @@ from RFSLM_LSSVM import fit_RFSLM_LSSVM
 from CFGSMO_LSSVM import fit_CFGSMO_LSSVM
 from SCG_LSSVM import fit_SCG_LSSVM
 from TCSMO_LSSVM import fit_TCSMO_LSSVM
+from FSLM_LSSVM_improved import fit_FSLM_LSSVM_improved
 from métricas import metricas
 from time import process_time
 
@@ -23,7 +24,7 @@ from time import process_time
 #------------------------------------------------------------------------------
 style.use("fivethirtyeight")
  
-X, y = make_blobs(n_samples = 2500, centers = 2, 
+X, y = make_blobs(n_samples = 2000, centers = 2, 
                cluster_std = 2.5, n_features = 2)
  
 
@@ -117,7 +118,6 @@ metricas(y_teste, CFGSMO_LSSVM_hat)
 
 CFGSMO_LSSVM_hat
 
-
 #Proposta SCG_LSSVM
 tic = process_time()
 resultado_SCG_LSSVM = fit_SCG_LSSVM(X_treino, y_treino,  0.5, 'gaussiano', 1.5, 0.01, 100)
@@ -151,6 +151,25 @@ TCSMO_LSSVM_hat = predict_class_LSSVM_ADMM(alphas_TCSMO_LSSVM, "gaussiano", X_tr
 metricas(y_teste, TCSMO_LSSVM_hat)
 
 TCSMO_LSSVM_hat
+
+#Proposta FSLM_LSSVM Improved
+tic = process_time()
+resultado_FSLM_LSSVM_improved = fit_FSLM_LSSVM_improved(X_treino, y_treino, 2, 0.3, 0.5, 80, "gaussiano", 2, 0.001)
+toc = process_time()
+time_FSLM_LSSVM_improved = toc - tic
+time_FSLM_LSSVM_improved
+
+alphas_FSLM_LSSVM_improved = resultado_FSLM_LSSVM_improved['mult_lagrange']
+alphas_FSLM_LSSVM_improved
+for i in alphas_FSLM_LSSVM_improved:
+    print(i)
+
+
+b_FSLM_LSSVM_improved =  resultado_FSLM_LSSVM_improved['b']
+b_FSLM_LSSVM_improved
+FSLM_LSSVM_hat_improved_hat = predict_class(alphas_FSLM_LSSVM_improved,
+                                             b_FSLM_LSSVM_improved, "gaussiano", X_treino, y_treino, X_teste)
+metricas(y_teste, FSLM_LSSVM_hat_improved_hat)
 
 #------------------------------------------------------------------------------
 #Realizando um pequeno teste
