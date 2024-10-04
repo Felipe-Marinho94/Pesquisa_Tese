@@ -13,14 +13,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from numpy import linalg as ln
 from kernel import linear_kernel, polinomial_kernel, gaussiano_kernel
-from sklearn.datasets import make_blobs, make_regression
+from sklearn.datasets import make_blobs
 from sklearn.cluster import DBSCAN
 from matplotlib import style
 
 #------------------------------------------------------------------------------
 #Implementação de algumas funções relevantes
 #------------------------------------------------------------------------------
-def Construct_A_b(X, y, kernel, tau):
+def Construct_A_B(X, y, kernel, tau):
     """
     Interface do método
     Ação: Este método ecapsular o cálculo da matriz A e vetor b para
@@ -56,26 +56,24 @@ def Construct_A_b(X, y, kernel, tau):
             if kernel == "polinomial":
                 K[i, j] = polinomial_kernel(X[i], X[j])
     
-    #Construção da Matriz Omega
-    Omega = np.zeros((n_samples, n_samples))
-    for i in range(n_samples):
-        for j in range(n_samples):
-            Omega[i, j] = y[i] * y[j] * K[i, j]
+    #--------------------------------------------------------------------------
+    #Decomposição da matriz de kernel
+    #--------------------------------------------------------------------------
+    #Cholesky Incompleta
+    P = np.linalg.cholesky(K + 0.01 * np.diag(np.full(K.shape[0], 1)))
     
-    #Construção da Matriz A
-    H = Omega + (1/tau) * np.identity(n_samples)
-    A = np.block([[np.array([0]), np.expand_dims(y, axis = 1).T],
-                   [np.expand_dims(y, axis = 1), H]])
-
-    #Construção do Vetor B
-    B = np.concatenate((np.expand_dims(np.zeros([1]), axis=1),
-                         np.expand_dims(np.ones(n_samples), axis = 1)), axis=0)
+    #Construção da matriz dos coeficiente A
+    A = P.T
+    
+    #Construção do vetor de coeficientes b
+    B = np.dot(ln.inv(tau * np.identity(n_samples) + np.dot(P, P.T)), np.dot(P.T, y))
+    B = np.expand_dims(B, axis = 1)
     
     #Resultados
     resultados = {'A': A,
                   "B": B}
     
-    return(resultados)
+    return(resultados)    
 
 
 #Realizando alguns testes
@@ -98,10 +96,11 @@ for i in range(len(y)):
 
 y
 
-Construct_A_b(X, y, 'gaussiano', 0.5)
+Construct_A_B(X, y, 'gaussiano', 0.5)['A'].shape
+Construct_A_B(X, y, 'gaussiano', 0.5)['B'].shape
 
 ###############################################################################
-def purity_index(X, y):
+def purity_level(X, y):
     '''
     Função para determinar o nível de pureza de uma determinado conjunto com
     base nas alterações de sinal do rótulo de cada amostra
@@ -130,7 +129,7 @@ def purity_index(X, y):
 #Realizando alguns testes
 index = np.random.randint(1, 100, size = (100))
 y[index[0]]
-purity_index(X, y)
+purity_level(X, y)
 
 ###############################################################################
 def cluster_optimum(X, y, eps = 0.5):
@@ -157,18 +156,18 @@ def cluster_optimum(X, y, eps = 0.5):
     #Recuperando os índices
     cluster = pd.Series(clustering.labels_, name = "cluster")
     df = pd.concat([cluster, X, y], axis = 1)
-    purity = df.groupby('cluster').apply(purity_index, df.y)
+    purity = df.groupby('cluster').apply(purity_level, df.y)
     
     return(df.where(df.cluster == purity.idxmax()).dropna(axis = 0).index)
 
-    
+
 #Realizando alguns testes
 clustering = DBSCAN().fit(pd.DataFrame(X))
 cluster = pd.Series(clustering.labels_, name = "cluster")    
 X_new = pd.concat([cluster, pd.DataFrame(X), pd.Series(y, name = "y")],
                   axis = 1)
 X_new.head()
-purity = X_new.groupby('cluster', group_keys = True).apply(purity_index, X_new.y)
+purity = X_new.groupby('cluster', group_keys = True).apply(purity_level, X_new.y)
 purity.idxmax()
 X_new.where(X_new.cluster == np.argmax(purity)).dropna(axis = 0).index
 cluster_optimum(X, y)
@@ -202,49 +201,59 @@ def fit_FSLM_LSSVM_improved(X, y, kappa, mu, Red, N, kernel, tau, epsilon):
     Índices dos Vetores de Suporte para cada iteração.
     """
     
+    #Obtenção do B para todo o dataset
+    B_total = Construct_A_B(X, y, kernel, tau)['B']
+    
     #Realizando um procedimento de clusterização utilizando o DBSCAN
     #e recuperando os índices do cluster mais ímpuro
     impurity_index = cluster_optimum(X, y)
     
     #Obtendo os índices do complemento do cluster mais ímpuro
-    purity_index = list(set(range(X.shape[0])).difference(set(impurity_index)))
+    purity_index = np.array(list(set(range(X.shape[0])).difference(set(impurity_index))))
+    purity_index = np.squeeze(purity_index)
     
     #Construção da matriz A e vetor b e inicialização aleatória
     #do vetor de multiplicadores de Lagrange
-    A = Construct_A_b(X[purity_index, :], y[purity_index], kernel, tau)['A']
-    B = Construct_A_b(X[purity_index, :], y[purity_index], kernel, tau)['B']
+    A = Construct_A_B(X[purity_index, :], y[purity_index], kernel, tau)['A']
+    B = Construct_A_B(X[purity_index, :], y[purity_index], kernel, tau)['B']
     
-    A_target = Construct_A_b(X[impurity_index, :], y[impurity_index], kernel, tau)['A']
-    B_target = Construct_A_b(X[impurity_index, :], y[impurity_index], kernel, tau)['B']
+    A_impurity = Construct_A_B(X[impurity_index, :], y[impurity_index], kernel, tau)['A']
+    B_impurity = Construct_A_B(X[impurity_index, :], y[impurity_index], kernel, tau)['B']
     
     #Obtenção do número de amostras
     n_samples, n_features = X[purity_index, :].shape
-    
+     
     #Inicialização aleatória do vetor de multiplicadores de Lagrange
-    z_inicial = np.random.normal(loc=0, scale=1, size=(n_samples + 1, 1))
-    z = z_inicial
+    z_inicial = np.random.normal(loc=0, scale=1, size=(n_samples))
+    z = pd.Series(z_inicial, index=purity_index)
+    A = pd.DataFrame(A, index = purity_index, columns = purity_index)
     
     #Obtenção dos multiplicadores de lagrange para o cluster mais impuro
-    z_target = ln.pinv(A_target).dot(B_target)
+    z_target = np.zeros(X.shape[0])
+    z_impurity = ln.pinv(A_impurity).dot(B_impurity)
+    z_target[impurity_index] = np.squeeze(z_impurity)
+    
+    #Obtenção do A_target
+    A_target = np.zeros((X.shape[0], X.shape[0]))
+    A_target[np.ix_((impurity_index), (impurity_index))] = A_impurity
 
     #Listas para armazenamento
-    idx_suporte = [range(0, n_samples)]
     erros = []
-    mult_lagrange = []
+    idx_suporte = []
     
     #Loop de iteração
     for k in range(1, N + 1):
 
         #Calculando o erro associado
-        erro = B - np.matmul(A, z)
-        erro_target = B_target - np.matmul(A_target, z_target)
+        erro = np.squeeze(B) - np.matmul(A, z)
+        erro_target = np.squeeze(B_total) - np.matmul(A_target, z_target)
 
         #Atualização
         z_anterior = z
         z = z + np.matmul(ln.inv(np.matmul(A.T, A) + mu * np.diag(np.matmul(A.T, A))), np.matmul(A.T, erro))
 
         #Condição para manter a atualização
-        erro_novo = B - np.matmul(A, z)
+        erro_novo = np.squeeze(B) - np.matmul(A, z)
         if np.mean(erro_novo**2) < np.mean(erro**2):
             z = z
         else:
@@ -258,24 +267,28 @@ def fit_FSLM_LSSVM_improved(X, y, kappa, mu, Red, N, kernel, tau, epsilon):
             n_colunas_removidas = int((n_samples - (n_samples * Red))/(N - (2 * kappa)))
 
             #Ordenar os menores valores absolutos dos multiplicadores de Lagrange
-            idx_remover = np.argsort(-np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
+            #idx_remover = np.argsort(-np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
+            sorted_indices = np.abs(z).sort_values(ascending = False).index
+            idx_remover = sorted_indices[:n_colunas_removidas]
 
-            #Armazenando os índices dos vetores de suporte a cada iteração
-            idx_suporte.append(np.argsort(-np.abs(np.squeeze(z)))[n_colunas_removidas:])
-            
             #Adição dos multiplicadores de lagrange
-            z_target.append(z[idx_remover])
+            z_target[idx_remover] = z[idx_remover]
             
             #Adição das colunas em A_target
-            A_target = np.insert(A_target, A_target.shape[1] - 1, A[:, idx_remover])
+            A_target[np.ix_((purity_index), (idx_remover))] = A.loc[purity_index, idx_remover]
 
-            #índices dos veotres de suporte
-            impurity_index.append(idx_remover)
-
-            #Remoção das colunas de A e linhas de z
-            A = np.delete(A, idx_remover, axis = 1)
-            z = np.delete(z, idx_remover, axis = 0)
+            #índices dos vetores de suporte
+            impurity_index = np.append(impurity_index, (idx_remover))
+            idx_suporte.append(impurity_index)
             
+            #Remoção das colunas de A e linhas de z
+            A = A.drop(idx_remover, axis = 1)
+            #z = np.delete(z, idx_remover, axis = 0)
+            z = z.drop(idx_remover)
+            
+            #Atualização dos indices puros
+            purity_index = z.index
+
         #Outra condição
         if k == N - kappa:
 
@@ -283,112 +296,93 @@ def fit_FSLM_LSSVM_improved(X, y, kappa, mu, Red, N, kernel, tau, epsilon):
             n_colunas_removidas = int(((n_samples - (n_samples * Red))/(N - (2 * kappa))) + ((n_samples - n_samples * Red)%(N - (2 * kappa))))
 
             #Ordenar os menores valores absolutos dos multiplicadores de Lagrange
-            idx_remover = np.argsort(-np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
+            #idx_remover = np.argsort(-np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
+            sorted_indices = np.abs(z).sort_values(ascending = False).index
+            idx_remover = sorted_indices[:n_colunas_removidas]
 
-            #Armazenando os índices dos vetores de suporte a cada iteração
-            idx_suporte.append(np.argsort(-np.abs(np.squeeze(z)))[n_colunas_removidas:])
-            
             #Adição dos multiplicadores de lagrange
-            z_target.append(z[idx_remover])
+            z_target[idx_remover] = z[idx_remover]
             
             #Adição das colunas em A_target
-            A_target = np.insert(A_target, A_target.shape[1] - 1, A[:, idx_remover])
+            A_target[np.ix_((purity_index), (idx_remover))] = A.loc[purity_index, idx_remover]
 
-            #índices dos veotres de suporte
-            impurity_index.append(idx_remover)
-
+            #índices dos vetores de suporte
+            impurity_index = np.append(impurity_index, (idx_remover))
+            idx_suporte.append(impurity_index)
+            
             #Remoção das colunas de A e linhas de z
-            A = np.delete(A, idx_remover, axis = 1)
-            z = np.delete(z, idx_remover, axis = 0)
+            A = A.drop(idx_remover, axis = 1)
+            #z = np.delete(z, idx_remover, axis = 0)
+            z = z.drop(idx_remover)
+            
+            #Atualização dos indices puros
+            purity_index = z.index
         
         #Armazenando o erro
-        erro_novo_target = B_target - np.matmul(A_target, z_target)
+        erro_novo_target = np.squeeze(B_total) - np.matmul(A_target, z_target)
         erros.append(np.mean(erro_target**2))
         
         #Critério de parada
         if np.abs(np.mean(erro_novo_target**2)) < epsilon:
             break
         
-    mult_lagrange = np.zeros((X.shape[0]))
-    mult_lagrange[impurity_index] = np.squeeze(z_target)[1:]
+    mult_lagrange = z_target
 
     #Resultados
     resultados = {"mult_lagrange": mult_lagrange,
-                    "b": np.squeeze(z_target)[0],
-                    "Erros": erros}
+                    "Erros": erros,
+                    "Indices_multiplicadores": idx_suporte,
+                    "Iteração": k}
 
     #Retornando os multiplicadores de Lagrange finais
     return(resultados)
 
 #Realizando alguns testes
 resultados = fit_FSLM_LSSVM_improved(X, y, 5, 0.5, 0.2, 30, 'gaussiano', 0.5, 0.01)
-resultados['b']
 len(resultados['mult_lagrange'])
 resultados['mult_lagrange']
+resultados['Erros']
+resultados['Iteração']
+len(resultados['Indices_multiplicadores'])
 for i in resultados['mult_lagrange']:
     print(i)
 
-#Realizando um procedimento de clusterização utilizando o DBSCAN
-#e recuperando os índices do cluster mais ímpuro
-impurity_index = cluster_optimum(X, y)
-impurity_index
-len(impurity_index)
-X[impurity_index, :]
-y[impurity_index]
 
-#Obtendo os índices do complemento do cluster mais ímpuro
-purity_index = list(set(range(X.shape[0])).difference(set(impurity_index)))
-purity_index
-X[purity_index, :]
+sns.lineplot(resultados, x=range(0,len(resultados['Erros'])), y = resultados['Erros'])
+plt.xlabel('Iteração')
+plt.ylabel('Erro Médio Quadrático (MSE)')
+plt.show()
 
+sns.set_theme(style="white")
+len(resultados['Indices_multiplicadores'])
+index = resultados['Indices_multiplicadores'][0]
+index.shape
+resultados['Indices_multiplicadores']
+fig = plt.subplot(2, 2, 1)
+fig.scatter(x=X[:,0], y=X[:,1])
+fig.plot(X[index,0], X[index,1], "or")
 
-#Construção da matriz A e vetor b e inicialização aleatória
-#do vetor de multiplicadores de Lagrange
-A = Construct_A_b(X[purity_index, :], y[purity_index], 'gaussiano', 0.5)['A']
-B = Construct_A_b(X[purity_index, :], y[purity_index], 'gaussiano', 0.5)['B']
+index = resultados['Indices_multiplicadores'][5]
+index.shape
+fig1 = plt.subplot(2, 2, 2)
+fig1.scatter(x=X[:,0], y=X[:,1])
+fig1.plot(X[index,0], X[index,1], "or")
 
-A_target = Construct_A_b(X[impurity_index, :], y[impurity_index], 'gaussiano', 0.5)['A']
-B_target = Construct_A_b(X[impurity_index, :], y[impurity_index], 'gaussiano', 0.5)['B']
-    
-#Obtenção do número de amostras
-n_samples, n_features = X[purity_index, :].shape
-    
-#Inicialização aleatória do vetor de multiplicadores de Lagrange
-z_inicial = np.random.normal(loc=0, scale=1, size=(n_samples + 1, 1))
-z = z_inicial
-    
-#Obtenção dos multiplicadores de lagrange para o cluster mais impuro
-z_target = ln.pinv(A_target).dot(B_target)
-z_target
-#Listas para armazenamento
-idx_suporte = [range(0, n_samples)]
-erros = []
-mult_lagrange = []
+index = -resultados['Indices_multiplicadores'][10]
+index.shape
+fig2 = plt.subplot(2, 2, 3)
+fig2.scatter(x=X[:,0], y=X[:,1])
+fig2.plot(X[index,0], X[index,1], "or")
 
+index = -resultados['Indices_multiplicadores'][16]
+index.shape
+fig3 = plt.subplot(2, 2, 4)
+fig3.scatter(x=X[:,0], y=X[:,1])
+fig3.plot(X[index,0], X[index,1], "or")
 
-for k in range(1, 30 + 1):
+plt.show()
 
-        #Calculando o erro associado
-        erro = B - np.matmul(A, z)
-        erro_target = B_target - np.matmul(A_target, z_target)
-
-        #Atualização
-        z_anterior = z
-        z = z + np.matmul(ln.inv(np.matmul(A.T, A) + mu * np.diag(np.matmul(A.T, A))), np.matmul(A.T, erro))
-
-        #Condição para manter a atualização
-        erro_novo = B - np.matmul(A, z)
-        if np.mean(erro_novo**2) < np.mean(erro**2):
-            z = z
-        else:
-            mu = mu/10
-            z = z_anterior
-        
-        #Condição para a janela de poda
-        if k > 5 and k < 30 - 5:
-            
-            #Realização da poda
-            n_colunas_removidas = int((n_samples - (n_samples * 0.2))/(30 - (2 * 5)))
-
-            #Ordenar os menores valores absolutos dos multiplicadores de Lagrange
-            idx_remover = np.argsort(-np.abs(np.squeeze(z)))[:n_colunas_removidas-1]
+c = np.array([-1, -2, -3])
+c = pd.Series(c)
+np.abs(c)
+np.abs(c).sort_values(ascending = False).index
