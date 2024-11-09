@@ -36,7 +36,7 @@ from TCSMO_LSSVM import fit_TCSMO_LSSVM #Quarta proposta
 from P_LSSVM import fit_P_LSSVM
 from IP_LSSVM import fit_IP_LSSVM
 from CFGSMO_LSSVM import fit_CFGSMO_LSSVM
-from kernel import gaussiano_kernel, fit_class, predict_class #LSSVM clássico e pré-condicionado
+from kernel import gaussiano_kernel, fit_LSSVM, predict_class #LSSVM clássico e pré-condicionado
 from svm_tese import SVM #SVM resolvido por QP
 
 #Tempo de processamento
@@ -70,11 +70,6 @@ def load_data(data_path, name_dataset):
     csv_path = os.path.join(data_path, f"{name_dataset}{extension}")
     return pd.read_csv(csv_path)
 
-#Inicialização do caminho para os arquivos csv's
-data_path = '/Users/Felipe/Documents/Python Scripts/Tese/Datasets'
-
-#Realização de um pequeno teste
-df = load_data(data_path, 'banana.csv')
 
 #Remoção de registros com valores nulos
 def drop_nan(dataset):
@@ -165,10 +160,15 @@ def filtro_correlacao(df):
 #--------------------------------------------------------------------------------------------------
 #Implementando o pipeline de dados
 #-------------------------------------------------------------------------------------------------- 
+#Inicialização do caminho para os arquivos csv's
+data_path_datasets = '/Users/Felipe/Documents/Python Scripts/Tese/Datasets'
+data_path_predictions = '/Users/Felipe/Documents/Python Scripts/Tese/Predictions'
+data_path_performances = '/Users/Felipe/Documents/Python Scripts/Tese/Performances'
+data_path_times = '/Users/Felipe/Documents/Python Scripts/Tese/Times'
+
 #Inicialização dos nomes dos datasets
 datasets = ['banana.csv', 'haberman.csv','ionosphere.csv', #'hepatitis.csv']
             'SouthGermanCredit.csv', 'column_2C.csv']
-load_data(data_path ,'hepatitis.csv')
 
 #Definição da função para inserção no pipeline
 drop_nan_pipeline = FunctionTransformer(drop_nan)
@@ -189,29 +189,26 @@ modelos_comparacao_sklearn = {'KNN': KNeighborsClassifier(),
                               'Logística': LogisticRegression(),
                               'SVM': SVC()}
 
-modelos_propostos = ['LSSVM_ADMM', 'FSLM_LSSVM_improved',
-                     'SCG_LSSVM', 'TCSMO_LSSVM']
-
-modelos_comparacao_implementados = ['P_LSSVM', 'IP_LSSVM', 'FSLM_LSSVM',
-                                    'LSSVM', 'CFGSMO_LSSVM']
+modelos = ['LSSVM', 'LSSVM_ADMM', 'CFGSMO_LSSVM', 'TCSMO_LSSVM',
+           'P_LSSVM', 'IP_LSSVM', 'FSLM_LSSVM', 'FSLM_LSSVM_improved']
 
 for dataset in datasets:
 
     #Carregando a base
-    df = load_data(data_path, dataset)
+    df = load_data(data_path_datasets, dataset)
 
     #Separando features de target
     X = df.iloc[:, range(df.shape[1]-1)]
-    y = df.iloc[:, df.shape[1] -1]
+    y = np.array(df.iloc[:, df.shape[1] -1])
 
     #Divisão treino/teste
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 42)
 
     #Aplicando o pipeline de dados ao conjunto de treino
-    X_train_processed = data_pipeline.fit_transform(X_train)
+    X_train_processed = np.array(data_pipeline.fit_transform(X_train))
 
     #Aplicando o pipeline de dados ao conjunto de teste
-    X_test_processed = data_pipeline.fit_transform(X_test)
+    X_test_processed = np.array(data_pipeline.fit_transform(X_test))
 
     #----------------------------------------------------------------
     #----------------------------------------------------------------
@@ -220,19 +217,49 @@ for dataset in datasets:
     #----------------------------------------------------------------
     #Ajuste dos modelos
     train_predict, test_predict = {}, {}
+    time_processing = {}
+    performance = {}
     for k in modelos_comparacao_sklearn:
+
+        tic = process_time() #Inicialização do contador
         modelos_comparacao_sklearn[k].fit(X_train_processed, y_train)
+        toc = process_time() #Finalização do contador
+
+        #Armazenando as performance e os tempos de treinamento
+        time_processing[k] = toc - tic
         train_predict[k] = modelos_comparacao_sklearn[k].predict(X_train_processed)
         test_predict[k] = modelos_comparacao_sklearn[k].predict(X_test_processed)
+
+        #Obtendo as métricas  de performance
+        performance[k] = metricas(y_test, test_predict[k])
+
+    #---------------------------------------------------
+    #Obtenção dos resultados para os modelos propostos
+    #---------------------------------------------------
+    #LSSVM
+    tic = process_time()
+    resultado_LSSVM = fit_LSSVM(X_train_processed, y_train, 0.5, "gaussiano")
+    toc = process_time()
     
-    sklearn_predict_train = pd.DataFrame(train_predict)
-    sklearn_predict_test = pd.DataFrame(test_predict)
+    alphas_LSSVM = resultado_LSSVM['mult_lagrange']
+    b_LSSVM = resultado_LSSVM['b']
+    train_predict['LSSVM'] = predict_class(alphas_LSSVM, b_LSSVM, "gaussiano", X_train_processed,
+                                            y_train, X_train_processed)
+    test_predict['LSSVM'] = predict_class(alphas_LSSVM, b_LSSVM, "gaussiano", X_train_processed,
+                                            y_train, X_test_processed)
+    performance['LSSVM'] = metricas(y_test, test_predict['LSSVM'])
+    
+    #Gerando os dataframes
+    train_predict = pd.DataFrame(train_predict)
+    test_predict = pd.DataFrame(test_predict)
+    performance = pd.DataFrame(performance)
+    time_processing = pd.Series(time_processing)
 
-
-sklearn_predict_test
-
-
-
+    #Exportando os resultados como excel
+    train_predict.to_excel(f"train_predict_{dataset}.xlsx")
+    test_predict.to_excel(f"test_predict_{dataset}.xlsx")
+    performance.to_excel(f"performance_{dataset}.xlsx")
+    time_processing.to_excel(f"time_processing_{dataset}.xlsx")
 
 
 
