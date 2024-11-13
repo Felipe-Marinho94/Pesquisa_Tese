@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from numpy import linalg
 from sklearn.datasets import make_blobs, make_regression
 from matplotlib import style
-
+from Gradiente_conjugado import CG, CG_conditioned
 
 #------------------------------------------------------------------------------
 #Implementação de algumas funções de kernel
@@ -35,6 +35,7 @@ def polinomial_kernel(x, y, C = 1, d = 3):
 def gaussiano_kernel(x, y, gamma = 0.5):
     return np.exp(-gamma * linalg.norm(x - y)**2)
 
+
 #------------------------------------------------------------------------------
 #Implementação do método fit() para problemas de classificação e regressão
 #utilizando o CG de Hestenes-Stiefel
@@ -44,7 +45,7 @@ def gaussiano_kernel(x, y, gamma = 0.5):
 #
 #    -GOLUB, Gene H.; VAN LOAN, Charles F. Matrix computations. JHU press, 2013.   
 #------------------------------------------------------------------------------
-def fit_class(X, y, tau, kernel):
+def fit_LSSVM(X, y, tau, kernel):
     #Inputs
     #X: array das variáveis de entrada array(n x p)
     #y: array de rótulos (classificação), variável de saída (regressão) array (n x 1)
@@ -93,7 +94,8 @@ def fit_class(X, y, tau, kernel):
     B = np.squeeze(B)
     
     #Aplicação de um método iterativo para a solução do sistema Ax = B
-    solution = CG(A, B, 0.1)
+    guess_inicial = np.zeros(n_samples + 1)
+    solution = CG_conditioned(A, guess_inicial, B)
     
     #Obtenção do b e dos multiplicadores de Lagrange
     b = solution[0]
@@ -254,7 +256,7 @@ for i in range(len(y)):
 X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size = 0.3,
                                                         random_state= 49)
 
-resultado = fit_class(X_treino, y_treino, 0.5, "gaussiano")
+resultado = fit_LSSVM(X_treino, y_treino, 0.5, "gaussiano")
 alphas = resultado['mult_lagrange']
 b = resultado['b']
 lssvm_hat = predict_class(alphas, b, "gaussiano", X_treino, y_treino, X_teste)
